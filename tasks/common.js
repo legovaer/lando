@@ -33,7 +33,8 @@ var jsFiles = [
 
 // All test files
 var testJsFiles = [
-  'test/**/*.js'
+  'test/**/*.js',
+  'plugins/**/test/**/*.js'
 ];
 
 // Linux BATS tests
