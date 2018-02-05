@@ -2,16 +2,22 @@
 
 const CliTest = require('command-line-test');
 const chai = require('chai');
+const expect = chai.expect;
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const jsYaml = require('js-yaml');
-const should = chai.should();
+
+chai.should();
+
+const Docker = require('dockerode');
+
 
 describe('App Commands', function() {
   this.timeout(50000);
   // Setup a temp dir to play in.
   before(function() {
+    this.docker = new Docker();
     this.appFolder = fs.mkdtempSync(
       path.join(os.tmpdir(), 'lando-test-'),
       (err, folder) => {
@@ -25,12 +31,10 @@ describe('App Commands', function() {
       'name': 'lando-test',
       'services': {
         'node': {
-          'type': 'node:8.9',
-          'image': 'docker/hello-world'
+          'type': 'node:8.9'
         },
         'redis': {
-          'type': 'redis:4.0',
-          'image': 'docker/hello-world'
+          'type': 'redis:4.0'
         }
       }
     };
@@ -54,17 +58,56 @@ describe('App Commands', function() {
 
   describe('start', function() {
     it('Starts all containers on an app', function() {
-      return this.cliTest.execFile(this.executable, ['start'], {cwd: this.appFolder}).then((res) => {
-        should.not.exist(res.error);
+      return this.cliTest.execFile(this.executable, ['start'], {cwd: this.appFolder})
+      .then((res) => {
+        const nodeContainer = this.docker.getContainer('landotest_node_1');
+        nodeContainer.inspect(function(err, data) {
+          if (err) { throw err; }
+          return data.State.should.have.property('Status', 'running');
+        });
+        const redisContainer = this.docker.getContainer('landotest_redis_1');
+        redisContainer.inspect(function(err, data) {
+          if (err) { throw err; }
+          return data.State.should.have.property('Status','running');
+        });
       });
     });
+
+    // The proxy seems to REALLLLY slow down the test, skip for now.
+    it('Provides proxied URLs to the user');
   });
 
   describe('stop', function() {
     it('Stops all containers on an app', function() {
       return this.cliTest.execFile(this.executable, ['stop'], {cwd: this.appFolder}).then((res) => {
-        should.not.exist(res.error);
-      })
-    })
+        const nodeContainer = this.docker.getContainer('landotest_node_1');
+        nodeContainer.inspect(function(err, data) {
+          if (err) { throw err; }
+          return data.State.should.have.property('Status', 'exited');
+        });
+        const redisContainer = this.docker.getContainer('landotest_redis_1');
+        redisContainer.inspect(function(err, data) {
+          if (err) { throw err; }
+          return data.State.should.have.property('Status', 'exited');
+        });
+      });
+    });
+  });
+
+  describe('destroy', function() {
+    it('Removes all containers', function() {
+      return this.cliTest.execFile(this.executable, ['destroy', '-y'], {cwd: this.appFolder})
+      .then((res) => {
+        return this.docker.listContainers((err, data) => {
+          if (err) { throw err; }
+          let ourCotainers = [];
+          ourCotainers = data.filter(
+            (container) => container.Names.includes('/landotest_node_1') ||
+            container.Names.includes('/landotest_redis_1')
+          );
+          expect(ourCotainers).to.be.an('array').that.is.empty;
+        });
+      });
+    });
   })
 });

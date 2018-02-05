@@ -8,6 +8,7 @@ const fs = require('fs');
 chai.should();
 
 describe('basic usage', function() {
+  this.timeout(5000);
   beforeEach(function() {
     this.cliTest = new CliTest();
     this.executable = path.resolve(

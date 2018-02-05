@@ -8,7 +8,6 @@
 // Setup chai.
 var chai = require('chai');
 var expect = chai.expect;
-chai.should();
 
 // Get caching module to test
 var Cache = require('./../../lib/cache');
