@@ -56,7 +56,7 @@ describe('App Commands', function() {
     );
   });
 
-  describe('start', function() {
+  describe('#start', function() {
     it('Starts all containers on an app', function() {
       return this.cliTest.execFile(this.executable, ['start'], {cwd: this.appFolder})
       .then((res) => {
@@ -68,16 +68,15 @@ describe('App Commands', function() {
         const redisContainer = this.docker.getContainer('landotest_redis_1');
         redisContainer.inspect(function(err, data) {
           if (err) { throw err; }
-          return data.State.should.have.property('Status','running');
+          return data.State.should.have.property('Status', 'running');
         });
       });
     });
-
     // The proxy seems to REALLLLY slow down the test, skip for now.
     it('Provides proxied URLs to the user');
   });
 
-  describe('stop', function() {
+  describe('#stop', function() {
     it('Stops all containers on an app', function() {
       return this.cliTest.execFile(this.executable, ['stop'], {cwd: this.appFolder}).then((res) => {
         const nodeContainer = this.docker.getContainer('landotest_node_1');
@@ -94,11 +93,10 @@ describe('App Commands', function() {
     });
   });
 
-  describe('destroy', function() {
+  describe('#destroy', function() {
     it('Removes all containers', function() {
       return this.cliTest.execFile(this.executable, ['destroy', '-y'], {cwd: this.appFolder})
-      .then((res) => {
-        return this.docker.listContainers((err, data) => {
+      .then((res) => this.docker.listContainers((err, data) => {
           if (err) { throw err; }
           let ourCotainers = [];
           ourCotainers = data.filter(
@@ -106,8 +104,30 @@ describe('App Commands', function() {
             container.Names.includes('/landotest_redis_1')
           );
           expect(ourCotainers).to.be.an('array').that.is.empty;
-        });
+        }));
+    });
+  });
+
+  describe('#info', function() {
+    it('returns json', function() {
+      return this.cliTest.execFile(this.executable, ['config']).then((res) => {
+        // This could get risky as the output could have
+        // non-standard JSON we need to trim.
+        const getJson = function() {
+          JSON.parse(res.stdout);
+        };
+        expect(getJson).to.not.throw('SyntaxError');
       });
     });
-  })
+
+    it('shows info on all services', function() {
+      return this.cliTest.execFile(this.executable, ['info'], {cwd: this.appFolder})
+      .then((res) => {
+        const data = JSON.parse(res.stdout);
+        data.should.have.property('redis');
+        data.redis.should.have.property('internal_connection');
+        return data.should.have.property('node');
+      });
+    })
+  });
 });
